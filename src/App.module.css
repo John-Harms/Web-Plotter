@@ -1,0 +1,18 @@
+.gridContainer {
+  grid-template-columns: repeat(10, 1fr);
+  gap: 40px;
+  width: 100%;
+  padding: 16px;
+  background-color: green;
+}
+
+.siblingItem {
+  position: relative;
+  background-color: lightblue;
+  text-align: center;
+  margin: 0px;
+  padding: 0;
+  width: 0;
+  height: 0;
+  box-sizing: border-box;
+}
