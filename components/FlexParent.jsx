@@ -1,133 +1,133 @@
-import React, { useState, useEffect, useRef, useLayoutEffect } from 'react';
-import SiblingComponent from './SiblingComponent';
+import React, { useState, useCallback, useRef } from 'react';
+import styles from "./FlexParent.module.css";
+import hospitalMap from "../assets/images/StLukes.png";
 
-const FlexParent = () => {
-  const numberOfSiblings = 20;
-  const siblingRefs = useRef([]);
-  const [siblingPositions, setSiblingPositions] = useState([]);
-  const [siblingRelationships, setSiblingRelationships] = useState([]);
-  const [forceUpdate, setForceUpdate] = useState(0);
+function FlexParent() {
+  const [dots, setDots] = useState([]);
+  const [connections, setConnections] = useState([]);
+  const [selectedDotId, setSelectedDotId] = useState(null);
+  const [isDragging, setIsDragging] = useState(false);
+  const wasDraggingRef = useRef(false);
 
-  useEffect(() => {
-    siblingRefs.current = Array(numberOfSiblings).fill().map(() => React.createRef());
-    console.log("Refs created:", siblingRefs.current);
-    setForceUpdate(prevState => prevState + 1);
-  }, [numberOfSiblings]);
+  const addDot = useCallback((x, y) => {
+    const id = Date.now();
+    setDots((prevDots) => [...prevDots, { id, x, y }]);
+  }, [setDots]);
 
-  useLayoutEffect(() => {
-    const getPositions = () => {
-      if (!siblingRefs.current || siblingRefs.current.length === 0) return;
+  const startDraggingDot = useCallback((dotId) => {
+    console.log("handleDotMouseDown - dotId:", dotId, "isDragging:", isDragging, "wasDraggingRef.current:", wasDraggingRef.current);
+    setSelectedDotId(dotId);
+    setIsDragging(true);
+    wasDraggingRef.current = true;
+  }, [setSelectedDotId, setIsDragging, isDragging]);
 
-      const allRefsAttached = siblingRefs.current.every(ref => ref.current !== null);
-
-      if (!allRefsAttached) {
-        console.log("Not all refs attached yet, rescheduling getPositions.");
-        requestAnimationFrame(getPositions);
-        return;
-      }
-
-      requestAnimationFrame(() => {
-        requestAnimationFrame(() => {
-          const positions = siblingRefs.current.map((ref, index) => {
-            const rect = ref.current.getBoundingClientRect();
-            console.log(`Simplified Sibling ${index} Rect:`, rect);
-            return { id: index, rect };
-          }).filter(pos => pos !== null);
-
-          if (positions.length === numberOfSiblings) {
-            setSiblingPositions(positions);
-            console.log("Simplified Sibling Positions updated:", positions);
-          } else {
-            console.log("Positions not fully retrieved, NOT updating state.");
-            requestAnimationFrame(getPositions);
-          }
-        });
-      });
-    };
-
-    getPositions();
-    window.addEventListener('resize', getPositions);
-    return () => window.removeEventListener('resize', getPositions);
-  }, [siblingRefs, forceUpdate]);
-
-
-  useEffect(() => {
-    console.log("Sibling Positions Input to Relationships:", siblingPositions);
-    if (siblingPositions.length === numberOfSiblings) {
-      const relationships = siblingPositions.map((siblingPos, index) => {
-        const neighbors = { top: null, right: null, bottom: null, left: null };
-        let closestRightSiblingDistance = Infinity;
-        let closestLeftSiblingDistance = Infinity;
-        let closestTopSiblingDistance = Infinity;
-        let closestBottomSiblingDistance = Infinity;
-
-        siblingPositions.forEach((otherSiblingPos) => {
-          if (otherSiblingPos.id === siblingPos.id) return;
-
-          const rect1 = siblingPos.rect;
-          const rect2 = otherSiblingPos.rect;
-
-          const centerX1 = rect1.left + rect1.width / 2;
-          const centerY1 = rect1.top + rect1.height / 2;
-
-
-          // Sibling to the Right
-          if (rect2.left > rect1.right && centerY1 >= rect2.top && centerY1 <= rect2.bottom) {
-            const distance = rect2.left - rect1.right;
-            if (distance < closestRightSiblingDistance) {
-              neighbors.right = otherSiblingPos.id;
-              closestRightSiblingDistance = distance;
-            }
-          }
-
-          // Sibling to the Left
-          if (rect2.right < rect1.left && centerY1 >= rect2.top && centerY1 <= rect2.bottom) {
-            const distance = rect1.left - rect2.right;
-            if (distance < closestLeftSiblingDistance) {
-              neighbors.left = otherSiblingPos.id;
-              closestLeftSiblingDistance = distance;
-            }
-          }
-
-          // Sibling Below
-          if (rect2.top > rect1.bottom && centerX1 >= rect2.left && centerX1 <= rect2.right) {
-            const distance = rect2.top - rect1.bottom;
-            if (distance < closestBottomSiblingDistance) {
-              neighbors.bottom = otherSiblingPos.id;
-              closestBottomSiblingDistance = distance;
-            }
-          }
-
-          // Sibling Above
-          if (rect2.bottom < rect1.top && centerX1 >= rect2.left && centerX1 <= rect2.right) {
-            const distance = rect1.top - rect2.bottom;
-            if (distance < closestTopSiblingDistance) {
-              neighbors.top = otherSiblingPos.id;
-              closestTopSiblingDistance = distance;
-            }
-          }
-        });
-        console.log(`Sibling ${index} Relationships (Raycasting):`, neighbors);
-        return { id: siblingPos.id, neighbors };
-      });
-      setSiblingRelationships(relationships);
-      console.log("Sibling Relationships State:", siblingRelationships);
+  const stopDraggingAndConnect = useCallback((releaseX, releaseY) => {
+    console.log("handleImgBoundsMouseUp - releaseX:", releaseX, "releaseY:", releaseY, "isDragging:", isDragging, "wasDraggingRef.current:", wasDraggingRef.current, "selectedDotId:", selectedDotId);
+    if (!isDragging || selectedDotId === null) {
+      setIsDragging(false);
+      setSelectedDotId(null);
+      wasDraggingRef.current = false;
+      console.log("handleImgBoundsMouseUp - Early return - !isDragging or !selectedDotId. isDragging:", isDragging, "selectedDotId:", selectedDotId);
+      return;
     }
-  }, [siblingPositions, numberOfSiblings]);
+
+    setIsDragging(false);
+    wasDraggingRef.current = false;
+    console.log("handleImgBoundsMouseUp - Dragging stopped, wasDraggingRef reset. isDragging:", isDragging, "wasDraggingRef.current:", wasDraggingRef.current);
+
+
+    const targetDot = dots.find(dot => {
+      if (dot.id === selectedDotId) return false;
+      const distance = Math.sqrt(Math.pow(dot.x - releaseX, 2) + Math.pow(dot.y - releaseY, 2));
+      return distance <= 20;
+    });
+
+    if (targetDot) {
+      const startDot = dots.find(dot => dot.id === selectedDotId);
+      if (startDot) {
+        const connectionExists = connections.some(conn =>
+          (conn.dot1Id === selectedDotId && conn.dot2Id === targetDot.id) ||
+          (conn.dot1Id === targetDot.id && conn.dot2Id === selectedDotId)
+        );
+
+        if (!connectionExists) {
+          const distance = Math.sqrt(Math.pow(targetDot.x - startDot.x, 2) + Math.pow(targetDot.y - startDot.y, 2));
+          const newConnection = {
+            dot1Id: selectedDotId,
+            dot2Id: targetDot.id,
+            distance: distance.toFixed(2),
+          };
+          setConnections([...connections, newConnection]);
+        }
+      }
+    }
+    setSelectedDotId(null);
+  }, [dots, connections, isDragging, selectedDotId, setConnections, setSelectedDotId, setIsDragging]);
+
+  // **Removed handleClick and moved dot placement logic to handleImgBoundsMouseUp**
+  const handleImgBoundsMouseUp = useCallback((e) => {
+    console.log("handleImgBoundsMouseUp - START - isDragging:", isDragging, "wasDraggingRef.current:", wasDraggingRef.current);
+    const rect = e.currentTarget.getBoundingClientRect();
+    const releaseX = e.clientX - rect.left;
+    const releaseY = e.clientY - rect.top;
+
+    if (wasDraggingRef.current) {
+      stopDraggingAndConnect(releaseX, releaseY);
+      console.log("handleImgBoundsMouseUp - Drag release flow completed");
+    } else if (!isDragging) { // Only add a dot if NOT dragging and NOT wasDragging (simple click)
+      console.log("handleImgBoundsMouseUp - Simple click - Adding dot");
+      addDot(releaseX, releaseY);
+    } else {
+      console.log("handleImgBoundsMouseUp - MouseUp during drag, but not a release - should not happen in this logic"); // Should ideally not reach here
+    }
+    console.log("handleImgBoundsMouseUp - END - isDragging:", isDragging, "wasDraggingRef.current:", wasDraggingRef.current);
+  }, [stopDraggingAndConnect, addDot, isDragging]); // isDragging added as dependency
+
+
+  const handleDotMouseDown = useCallback((e, dotId) => {
+    e.stopPropagation();
+    startDraggingDot(dotId);
+  }, [startDraggingDot]);
 
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'row', flexWrap: 'wrap', width: '500px', border: '2px solid red' }}>
-      {Array.from({ length: numberOfSiblings }).map((_, index) => (
-        <SiblingComponent
-          key={index}
-          id={index}
-          ref={siblingRefs.current[index]}
-          neighbors={siblingRelationships.find(rel => rel.id === index)?.neighbors || {}}
-        />
-      ))}
+    <div className={styles.container}>
+      <img src={hospitalMap} className={styles.img} alt="Hospital Map" />
+      <div
+        className={styles.imgBounds}
+        // **Removed onClick from imgBounds**
+        onMouseUp={handleImgBoundsMouseUp} // Now using onMouseUp for everything
+      >
+        {dots.map((dot) => (
+          <div
+            key={dot.id}
+            className={styles.dot}
+            style={{ left: dot.x - 10, top: dot.y - 10 }}
+            onMouseDown={(e) => handleDotMouseDown(e, dot.id)}
+            draggable={false}
+          ></div>
+        ))}
+
+        <svg className={styles.connectionCanvas}>
+          {connections.map((connection, index) => {
+            const dot1 = dots.find(dot => dot.id === connection.dot1Id);
+            const dot2 = dots.find(dot => dot.id === connection.dot2Id);
+            if (!dot1 || !dot2) return null;
+
+            return (
+              <line
+                key={index}
+                x1={dot1.x} y1={dot1.y}
+                x2={dot2.x} y2={dot2.y}
+                stroke="black"
+                strokeWidth="4"
+              />
+            );
+          })}
+        </svg>
+      </div>
     </div>
   );
-};
+}
 
 export default FlexParent;

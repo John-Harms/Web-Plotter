@@ -4,7 +4,6 @@ import FlexParent from '../components/FlexParent'; // Or the correct path to Fle
 function App() {
   return (
     <div>
-      <h1>Flexbox Siblings Communication</h1>
       <FlexParent /> {/* Make sure this line is present and not commented out */}
     </div>
   );

@@ -1,0 +1,42 @@
+.container {
+    position: relative; /* Make the container the positioning context */
+    display: inline-block; /* Or block, flex, depending on your layout needs */
+  }
+
+  .img {
+    display: block; /* Ensure image behaves as a block element */
+    width: 700px; /* Or set a specific width if needed */
+    height: auto; /* Maintain aspect ratio */
+  }
+
+  .imgBounds {
+    position: absolute; /* Absolutely position the overlay */
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    /* background-color: rgba(0, 0, 0, 0.5); Example: Semi-transparent black overlay */
+    /* Add any other styles for your overlay div here */
+    z-index: 1; /* Ensure the overlay is above the image */
+  }
+
+  .dot {
+    position: absolute;
+    width: 20px;
+    height: 20px;
+    background-color: blue;
+    border-radius: 50%; /* Make it a circle */
+    z-index: 2; /* Ensure dots are above imgBounds if it has background */
+    pointer-events: auto; /* Make dots interactive for mouse events */
+    cursor: pointer; /* Indicate it's interactive */
+  }
+
+.connectionCanvas {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  z-index: 1; /* Ensure lines are on top of image but below dots */
+  pointer-events: none; /* Allow clicks to pass through to dots/imgBounds */
+}
