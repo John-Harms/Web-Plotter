@@ -1,23 +1,21 @@
 .container {
-    position: relative; /* Make the container the positioning context */
-    display: inline-block; /* Or block, flex, depending on your layout needs */
+    position: relative;
+    display: inline-block;
   }
 
   .img {
-    display: block; /* Ensure image behaves as a block element */
-    width: 700px; /* Or set a specific width if needed */
-    height: auto; /* Maintain aspect ratio */
+    display: block;
+    width: 700px;
+    height: auto;
   }
 
   .imgBounds {
-    position: absolute; /* Absolutely position the overlay */
+    position: absolute;
     top: 0;
     left: 0;
     width: 100%;
     height: 100%;
-    /* background-color: rgba(0, 0, 0, 0.5); Example: Semi-transparent black overlay */
-    /* Add any other styles for your overlay div here */
-    z-index: 1; /* Ensure the overlay is above the image */
+    z-index: 1;
   }
 
   .dot {
@@ -25,10 +23,14 @@
     width: 20px;
     height: 20px;
     background-color: blue;
-    border-radius: 50%; /* Make it a circle */
-    z-index: 2; /* Ensure dots are above imgBounds if it has background */
-    pointer-events: auto; /* Make dots interactive for mouse events */
-    cursor: pointer; /* Indicate it's interactive */
+    border-radius: 50%;
+    z-index: 2;
+    pointer-events: auto;
+    cursor: pointer;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    font-size: 0.8em;
   }
 
 .connectionCanvas {
@@ -37,6 +39,35 @@
   left: 0;
   width: 100%;
   height: 100%;
-  z-index: 1; /* Ensure lines are on top of image but below dots */
-  pointer-events: none; /* Allow clicks to pass through to dots/imgBounds */
+  z-index: 1;
+  pointer-events: none;
+}
+
+.dotNameInputBox {
+  position: absolute;
+  /* top: -30px;  Position above the dot */
+  /* left: -25px; centers box above dot */
+  width: 70px; /* Adjust width as needed */
+  /* height:  Adjust height to fit input and border */
+  z-index: 3; /* Ensure it's above dots */
+  background-color: white;
+  border: 1px solid #ccc;
+  border-radius: 5px;
+  padding: 2px;
+  box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+}
+
+
+.dotNameInput {
+  width: 100%;
+  padding: 0;
+  text-align: center;
+  box-sizing: border-box;
+  font-size: 0.8em;
+  border-radius: 0px; /*remove border radius to fit inside box*/
+  border: none;
+  outline: none;
+  background-color: transparent; /* Input bg transparent to see inputBox bg */
+  color: black; /* Ensure text is visible */
+  height: 20px; /*adjust height of input box*/
 }

@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useRef } from 'react';
+import React, { useState, useCallback, useRef, useEffect } from 'react';
 import styles from "./FlexParent.module.css";
 import hospitalMap from "../assets/images/StLukes.png";
 
@@ -6,12 +6,22 @@ function FlexParent() {
   const [dots, setDots] = useState([]);
   const [connections, setConnections] = useState([]);
   const [selectedDotId, setSelectedDotId] = useState(null);
+  const [renamingDotId, setRenamingDotId] = useState(null);
   const [isDragging, setIsDragging] = useState(false);
   const wasDraggingRef = useRef(false);
 
+  useEffect(() => {
+    console.log("Dots updated:", dots);
+  }, [dots]);
+
+  useEffect(() => {
+    console.log("Connections updated:", connections);
+  }, [connections]);
+
+
   const addDot = useCallback((x, y) => {
     const id = Date.now();
-    setDots((prevDots) => [...prevDots, { id, x, y }]);
+    setDots((prevDots) => [...prevDots, { id, x, y, name: null, isRenaming: false }]);
   }, [setDots]);
 
   const startDraggingDot = useCallback((dotId) => {
@@ -64,7 +74,6 @@ function FlexParent() {
     setSelectedDotId(null);
   }, [dots, connections, isDragging, selectedDotId, setConnections, setSelectedDotId, setIsDragging]);
 
-  // **Removed handleClick and moved dot placement logic to handleImgBoundsMouseUp**
   const handleImgBoundsMouseUp = useCallback((e) => {
     console.log("handleImgBoundsMouseUp - START - isDragging:", isDragging, "wasDraggingRef.current:", wasDraggingRef.current);
     const rect = e.currentTarget.getBoundingClientRect();
@@ -74,14 +83,14 @@ function FlexParent() {
     if (wasDraggingRef.current) {
       stopDraggingAndConnect(releaseX, releaseY);
       console.log("handleImgBoundsMouseUp - Drag release flow completed");
-    } else if (!isDragging) { // Only add a dot if NOT dragging and NOT wasDragging (simple click)
+    } else if (!isDragging) {
       console.log("handleImgBoundsMouseUp - Simple click - Adding dot");
       addDot(releaseX, releaseY);
     } else {
-      console.log("handleImgBoundsMouseUp - MouseUp during drag, but not a release - should not happen in this logic"); // Should ideally not reach here
+      console.log("handleImgBoundsMouseUp - MouseUp during drag, but not a release - should not happen in this logic");
     }
     console.log("handleImgBoundsMouseUp - END - isDragging:", isDragging, "wasDraggingRef.current:", wasDraggingRef.current);
-  }, [stopDraggingAndConnect, addDot, isDragging]); // isDragging added as dependency
+  }, [stopDraggingAndConnect, addDot, isDragging]);
 
 
   const handleDotMouseDown = useCallback((e, dotId) => {
@@ -90,13 +99,23 @@ function FlexParent() {
   }, [startDraggingDot]);
 
 
+  const handleDotClick = useCallback((e, dotId) => {
+    e.stopPropagation();
+    setDots(prevDots => prevDots.map(dot =>
+      dot.id === dotId ? { ...dot, isRenaming: true } : { ...dot, isRenaming: false }
+    ));
+  }, [setDots]);
+
+  const isDotNameUnique = (name, currentDotId) => {
+    return dots.every(dot => dot.id === currentDotId || dot.name !== name);
+  };
+
   return (
     <div className={styles.container}>
       <img src={hospitalMap} className={styles.img} alt="Hospital Map" />
       <div
         className={styles.imgBounds}
-        // **Removed onClick from imgBounds**
-        onMouseUp={handleImgBoundsMouseUp} // Now using onMouseUp for everything
+        onMouseUp={handleImgBoundsMouseUp}
       >
         {dots.map((dot) => (
           <div
@@ -105,7 +124,33 @@ function FlexParent() {
             style={{ left: dot.x - 10, top: dot.y - 10 }}
             onMouseDown={(e) => handleDotMouseDown(e, dot.id)}
             draggable={false}
-          ></div>
+            onClick={(e) => handleDotClick(e, dot.id)}
+          >
+            {dot.isRenaming && (
+              <div className={styles.dotNameInputBox} style={{ top: '-30px', left: '-25px' }}>
+                <input
+                  type="text"
+                  className={styles.dotNameInput}
+                  placeholder="Name"
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                      const newName = e.target.value.trim();
+                      if (newName === "" || isDotNameUnique(newName, dot.id)) {
+                        setDots(prevDots => prevDots.map(d =>
+                          d.id === dot.id ? { ...d, name: newName, isRenaming: false } : d
+                        ));
+                      } else {
+                        alert('Dot name must be unique.');
+                        e.target.value = '';
+                      }
+                    }
+                  }}
+                  onBlur={() => setDots(prevDots => prevDots.map(dot => dot.id === dot.id ? { ...dot, isRenaming: false } : dot))}
+                  autoFocus
+                />
+              </div>
+            )}
+          </div>
         ))}
 
         <svg className={styles.connectionCanvas}>
