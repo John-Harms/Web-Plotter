@@ -7,11 +7,11 @@ function DotContextMenu({
   allDots, 
   connections, 
   updateDotName, 
-  updateDotVisibility,  // new prop for visibility update
+  updateDotVisibility, 
   addConnection, 
   removeConnection, 
-  deleteDot,   // new prop to handle deletion
-  onClose,     // callback to close the GUI
+  deleteDot, 
+  onClose, 
   position 
 }) {
   const [name, setName] = useState(dot.name || "");
@@ -61,7 +61,6 @@ function DotContextMenu({
           autoFocus 
         />
       </div>
-      {/* New checkbox for controlling dot name visibility */}
       <div>
         <label>
           <input 
@@ -86,7 +85,7 @@ function DotContextMenu({
               type="text" 
               placeholder="Filter dots" 
               value={filter} 
-              onChange={(e) => setFilter(e.target.value)} 
+              onChange={(e) => setFilter(e.target.value)}
             />
             <ul>
               {filteredDots.map(d => (
@@ -95,7 +94,7 @@ function DotContextMenu({
                   addConnection(dot.id, d.id); 
                   setShowDropdown(false);
                 }}>
-                  {d.name || `Dot ${d.id}`}
+                  {d.name || `Dot ${d.id}`} <span style={{ fontStyle: "italic", fontSize: "0.8em" }}>({d.map})</span>
                 </li>
               ))}
             </ul>
@@ -118,7 +117,6 @@ function DotContextMenu({
           ))}
         </ul>
       </div>
-      {/* New buttons to close the GUI and to delete the dot */}
       <div style={{ marginTop: "10px", display: "flex", justifyContent: "space-between" }}>
         <button onClick={(e) => { 
           e.stopPropagation(); 

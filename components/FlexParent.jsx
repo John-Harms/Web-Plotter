@@ -1,14 +1,21 @@
 // FlexParent.jsx
-import React, { useState, useCallback, useEffect } from 'react';
+import React, { useState, useCallback, useEffect } from "react";
 import styles from "./FlexParent.module.css";
 import hospitalMap from "../assets/images/StLukes.png";
 import DotContextMenu from "./DotContextMenu";
 
 function SimplifiedFlexParent() {
+  // New state for active map.
+  const [activeMap, setActiveMap] = useState("Map 1");
+
   const [dots, setDots] = useState([]);
   const [connections, setConnections] = useState([]);
-  // contextMenu state holds whether a dot’s menu is open, which dot, and its screen position.
-  const [contextMenu, setContextMenu] = useState({ visible: false, dotId: null, x: 0, y: 0 });
+  const [contextMenu, setContextMenu] = useState({
+    visible: false,
+    dotId: null,
+    x: 0,
+    y: 0,
+  });
 
   useEffect(() => {
     console.log("Dots updated:", dots);
@@ -18,7 +25,7 @@ function SimplifiedFlexParent() {
     console.log("Connections updated:", connections);
   }, [connections]);
 
-  // Global listener: clicking anywhere (outside the context menu) closes the menu.
+  // Global listener to close the context menu when clicking outside.
   useEffect(() => {
     const handleClickOutside = () => {
       if (contextMenu.visible) {
@@ -29,78 +36,115 @@ function SimplifiedFlexParent() {
     return () => document.removeEventListener("click", handleClickOutside);
   }, [contextMenu.visible]);
 
-  // When a left-click occurs on the image, add a new dot and open its context menu for naming.
-  const addDot = useCallback((x, y, clientX, clientY) => {
-    const id = Date.now();
-    // Added isVisible property here
-    setDots(prevDots => ([...prevDots, { id, x, y, name: "", isVisible: true }]));
-    setContextMenu({ visible: true, dotId: id, x: clientX, y: clientY });
-  }, []);
+  // When a left-click occurs on the image, add a new dot on the current active map.
+  const addDot = useCallback(
+    (x, y, clientX, clientY) => {
+      const id = Date.now();
+      // Include the activeMap property for the dot.
+      setDots((prevDots) => [
+        ...prevDots,
+        { id, x, y, name: "", isVisible: true, map: activeMap },
+      ]);
+      setContextMenu({ visible: true, dotId: id, x: clientX, y: clientY });
+    },
+    [activeMap]
+  );
 
-  const handleImgBoundsMouseUp = useCallback((e) => {
-    // Only respond to left-click (button 0)
-    if (e.button !== 0) return;
-    const rect = e.currentTarget.getBoundingClientRect();
-    const x = e.clientX - rect.left;
-    const y = e.clientY - rect.top;
-    addDot(x, y, e.clientX, e.clientY);
-  }, [addDot]);
+  const handleImgBoundsMouseUp = useCallback(
+    (e) => {
+      if (e.button !== 0) return;
+      const rect = e.currentTarget.getBoundingClientRect();
+      const x = e.clientX - rect.left;
+      const y = e.clientY - rect.top;
+      addDot(x, y, e.clientX, e.clientY);
+    },
+    [addDot]
+  );
 
-  // When a dot is right-clicked, open its context menu.
-  const handleDotContextMenu = useCallback((e, dotId) => {
-    e.preventDefault();
-    e.stopPropagation();
-    setContextMenu({ visible: true, dotId, x: e.clientX, y: e.clientY });
-  }, []);
-
-  // Update dot name in state.
-  const updateDotName = (id, newName) => {
-    setDots(prevDots => prevDots.map(d => d.id === id ? { ...d, name: newName } : d));
-  };
-
-  // New function to update dot visibility.
-  const updateDotVisibility = (id, visible) => {
-    setDots(prevDots => prevDots.map(d => d.id === id ? { ...d, isVisible: visible } : d));
-  };
-
-  // Add connection if it does not already exist.
+  // Update connection function to support cross-map connections.
   const addConnection = (id1, id2) => {
-    if (!connections.some(conn =>
-         (conn.dot1Id === id1 && conn.dot2Id === id2) ||
-         (conn.dot1Id === id2 && conn.dot2Id === id1)
-       )) {
-      const dot1 = dots.find(d => d.id === id1);
-      const dot2 = dots.find(d => d.id === id2);
+    if (
+      !connections.some(
+        (conn) =>
+          (conn.dot1Id === id1 && conn.dot2Id === id2) ||
+          (conn.dot1Id === id2 && conn.dot2Id === id1)
+      )
+    ) {
+      const dot1 = dots.find((d) => d.id === id1);
+      const dot2 = dots.find((d) => d.id === id2);
       if (dot1 && dot2) {
-        const distance = Math.sqrt(Math.pow(dot1.x - dot2.x, 2) + Math.pow(dot1.y - dot2.y, 2)).toFixed(2);
-        setConnections(prev => [...prev, { dot1Id: id1, dot2Id: id2, distance }]);
+        let distance;
+        // If on the same map, calculate Euclidean distance.
+        if (dot1.map === dot2.map) {
+          distance = Math.sqrt(
+            Math.pow(dot1.x - dot2.x, 2) + Math.pow(dot1.y - dot2.y, 2)
+          ).toFixed(2);
+        } else {
+          // For cross-map connections, use the absolute difference of the map numbers.
+          const num1 = parseInt(dot1.map.split(" ")[1], 10);
+          const num2 = parseInt(dot2.map.split(" ")[1], 10);
+          distance = Math.abs(num1 - num2);
+        }
+        setConnections((prev) => [
+          ...prev,
+          { dot1Id: id1, dot2Id: id2, distance },
+        ]);
       }
     }
   };
 
-  // Remove connection between two dots.
-  const removeConnection = (id1, id2) => {
-    setConnections(prev => prev.filter(conn => 
-      !((conn.dot1Id === id1 && conn.dot2Id === id2) || (conn.dot1Id === id2 && conn.dot2Id === id1))
-    ));
+  // Filter visible dots and connections to show only items on the active map.
+  const visibleDots = dots.filter((dot) => dot.map === activeMap);
+  const visibleConnections = connections.filter((connection) => {
+    const dot1 = dots.find((dot) => dot.id === connection.dot1Id);
+    const dot2 = dots.find((dot) => dot.id === connection.dot2Id);
+    return dot1 && dot2 && dot1.map === activeMap && dot2.map === activeMap;
+  });
+
+  const updateDotName = (id, newName) => {
+    setDots((prevDots) =>
+      prevDots.map((d) => (d.id === id ? { ...d, name: newName } : d))
+    );
   };
 
-  // Delete a dot and all its associated connections.
+  const updateDotVisibility = (id, visible) => {
+    setDots((prevDots) =>
+      prevDots.map((d) => (d.id === id ? { ...d, isVisible: visible } : d))
+    );
+  };
+
+  const removeConnection = (id1, id2) => {
+    setConnections((prev) =>
+      prev.filter(
+        (conn) =>
+          !(
+            (conn.dot1Id === id1 && conn.dot2Id === id2) ||
+            (conn.dot1Id === id2 && conn.dot2Id === id1)
+          )
+      )
+    );
+  };
+
   const deleteDot = useCallback((id) => {
     console.log("Deleting dot with id", id);
-    setDots(prevDots => prevDots.filter(dot => dot.id !== id));
-    setConnections(prevConnections =>
-      prevConnections.filter(conn => conn.dot1Id !== id && conn.dot2Id !== id)
+    setDots((prevDots) => prevDots.filter((dot) => dot.id !== id));
+    setConnections((prevConnections) =>
+      prevConnections.filter((conn) => conn.dot1Id !== id && conn.dot2Id !== id)
     );
-    // Close the context menu after deletion.
     setContextMenu({ visible: false, dotId: null, x: 0, y: 0 });
   }, []);
 
-  // Find the dot for which the context menu is open.
-  const currentDot = dots.find(d => d.id === contextMenu.dotId);
+  const currentDot = dots.find((d) => d.id === contextMenu.dotId);
 
   return (
     <div>
+      {/* Map Toggling UI */}
+      <div className={styles.mapSwitcher}>
+        <button onClick={() => setActiveMap("Map 1")}>Map 1</button>
+        <button onClick={() => setActiveMap("Map 2")}>Map 2</button>
+        <button onClick={() => setActiveMap("Map 3")}>Map 3</button>
+      </div>
+      <h2>Currently Viewing: {activeMap}</h2>
       <div className={styles.container}>
         <img src={hospitalMap} className={styles.img} alt="Hospital Map" />
         <div
@@ -108,15 +152,14 @@ function SimplifiedFlexParent() {
           onMouseUp={handleImgBoundsMouseUp}
           onContextMenu={(e) => e.preventDefault()}
         >
-          {dots.map((dot) => (
+          {visibleDots.map((dot) => (
             <React.Fragment key={dot.id}>
-              {/* Conditionally render dot name above the dot if isVisible is true */}
               {dot.isVisible && (
-                <div 
-                  className={styles.dotName} 
+                <div
+                  className={styles.dotName}
                   style={{
                     left: dot.x,
-                    top: dot.y - 30, // adjust vertical offset as needed
+                    top: dot.y - 30,
                   }}
                 >
                   {dot.name}
@@ -128,22 +171,33 @@ function SimplifiedFlexParent() {
                   left: dot.x - 10,
                   top: dot.y - 10,
                 }}
-                onContextMenu={(e) => handleDotContextMenu(e, dot.id)}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setContextMenu({
+                    visible: true,
+                    dotId: dot.id,
+                    x: e.clientX,
+                    y: e.clientY,
+                  });
+                }}
+                onMouseDown={(e) => e.stopPropagation()}
+                onMouseUp={(e) => e.stopPropagation()}
                 draggable={false}
               />
             </React.Fragment>
           ))}
-
           <svg className={styles.connectionCanvas}>
-            {connections.map((connection, index) => {
-              const dot1 = dots.find(dot => dot.id === connection.dot1Id);
-              const dot2 = dots.find(dot => dot.id === connection.dot2Id);
+            {visibleConnections.map((connection, index) => {
+              const dot1 = dots.find((dot) => dot.id === connection.dot1Id);
+              const dot2 = dots.find((dot) => dot.id === connection.dot2Id);
               if (!dot1 || !dot2) return null;
               return (
                 <line
                   key={index}
-                  x1={dot1.x} y1={dot1.y}
-                  x2={dot2.x} y2={dot2.y}
+                  x1={dot1.x}
+                  y1={dot1.y}
+                  x2={dot2.x}
+                  y2={dot2.y}
                   stroke="black"
                   strokeWidth="4"
                 />
@@ -153,16 +207,18 @@ function SimplifiedFlexParent() {
         </div>
       </div>
       {contextMenu.visible && currentDot && (
-        <DotContextMenu 
+        <DotContextMenu
           dot={currentDot}
           allDots={dots}
           connections={connections}
           updateDotName={updateDotName}
-          updateDotVisibility={updateDotVisibility}  /* Pass down the new function */
+          updateDotVisibility={updateDotVisibility}
           addConnection={addConnection}
           removeConnection={removeConnection}
-          deleteDot={deleteDot}  // Passing the delete function to the context menu.
-          onClose={() => setContextMenu({ visible: false, dotId: null, x: 0, y: 0 })}
+          deleteDot={deleteDot}
+          onClose={() =>
+            setContextMenu({ visible: false, dotId: null, x: 0, y: 0 })
+          }
           position={{ x: contextMenu.x, y: contextMenu.y }}
         />
       )}
