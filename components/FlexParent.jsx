@@ -1,3 +1,4 @@
+// FlexParent.jsx
 import React, { useState, useCallback, useEffect } from 'react';
 import styles from "./FlexParent.module.css";
 import hospitalMap from "../assets/images/StLukes.png";
@@ -31,7 +32,8 @@ function SimplifiedFlexParent() {
   // When a left-click occurs on the image, add a new dot and open its context menu for naming.
   const addDot = useCallback((x, y, clientX, clientY) => {
     const id = Date.now();
-    setDots(prevDots => ([...prevDots, { id, x, y, name: "" }]));
+    // Added isVisible property here
+    setDots(prevDots => ([...prevDots, { id, x, y, name: "", isVisible: true }]));
     setContextMenu({ visible: true, dotId: id, x: clientX, y: clientY });
   }, []);
 
@@ -54,6 +56,11 @@ function SimplifiedFlexParent() {
   // Update dot name in state.
   const updateDotName = (id, newName) => {
     setDots(prevDots => prevDots.map(d => d.id === id ? { ...d, name: newName } : d));
+  };
+
+  // New function to update dot visibility.
+  const updateDotVisibility = (id, visible) => {
+    setDots(prevDots => prevDots.map(d => d.id === id ? { ...d, isVisible: visible } : d));
   };
 
   // Add connection if it does not already exist.
@@ -102,18 +109,29 @@ function SimplifiedFlexParent() {
           onContextMenu={(e) => e.preventDefault()}
         >
           {dots.map((dot) => (
-            <div
-              key={dot.id}
-              className={styles.dot}
-              style={{
-                left: dot.x - 10,
-                top: dot.y - 10,
-              }}
-              onContextMenu={(e) => handleDotContextMenu(e, dot.id)}
-              draggable={false}
-            >
-              {dot.name}
-            </div>
+            <React.Fragment key={dot.id}>
+              {/* Conditionally render dot name above the dot if isVisible is true */}
+              {dot.isVisible && (
+                <div 
+                  className={styles.dotName} 
+                  style={{
+                    left: dot.x,
+                    top: dot.y - 30, // adjust vertical offset as needed
+                  }}
+                >
+                  {dot.name}
+                </div>
+              )}
+              <div
+                className={styles.dot}
+                style={{
+                  left: dot.x - 10,
+                  top: dot.y - 10,
+                }}
+                onContextMenu={(e) => handleDotContextMenu(e, dot.id)}
+                draggable={false}
+              />
+            </React.Fragment>
           ))}
 
           <svg className={styles.connectionCanvas}>
@@ -140,6 +158,7 @@ function SimplifiedFlexParent() {
           allDots={dots}
           connections={connections}
           updateDotName={updateDotName}
+          updateDotVisibility={updateDotVisibility}  /* Pass down the new function */
           addConnection={addConnection}
           removeConnection={removeConnection}
           deleteDot={deleteDot}  // Passing the delete function to the context menu.

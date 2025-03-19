@@ -7,6 +7,7 @@ function DotContextMenu({
   allDots, 
   connections, 
   updateDotName, 
+  updateDotVisibility,  // new prop for visibility update
   addConnection, 
   removeConnection, 
   deleteDot,   // new prop to handle deletion
@@ -59,6 +60,18 @@ function DotContextMenu({
           className={styles.dotNameInput} 
           autoFocus 
         />
+      </div>
+      {/* New checkbox for controlling dot name visibility */}
+      <div>
+        <label>
+          <input 
+            type="checkbox" 
+            checked={dot.isVisible} 
+            onChange={(e) => updateDotVisibility(dot.id, e.target.checked)} 
+            className={styles.checkbox}
+          />
+          Show Name
+        </label>
       </div>
       <div>
         <button onClick={(e) => { 
