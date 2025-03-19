@@ -1,13 +1,11 @@
-// FlexParent.jsx
-import React, { useState, useCallback, useEffect } from "react";
+// FlexParent.jsx (refactored)
+import React, { useState, useCallback, useEffect, useMemo } from "react";
 import styles from "./FlexParent.module.css";
 import hospitalMap from "../assets/images/StLukes.png";
 import DotContextMenu from "./DotContextMenu";
 
-function SimplifiedFlexParent() {
-  // New state for active map.
+function FlexParent() {
   const [activeMap, setActiveMap] = useState("Map 1");
-
   const [dots, setDots] = useState([]);
   const [connections, setConnections] = useState([]);
   const [contextMenu, setContextMenu] = useState({
@@ -16,38 +14,34 @@ function SimplifiedFlexParent() {
     x: 0,
     y: 0,
   });
+  const [connectionsVisible, setConnectionsVisible] = useState(true);
 
-  // Function to update isCrossMapConnected for all dots
+  // Update cross-map connections when connections change.
   const updateCrossMapConnections = useCallback(() => {
     setDots(prevDots => {
-      const updatedDots = prevDots.map(dot => ({ ...dot, isCrossMapConnected: false }));
-      const crossConnectedDotIds = new Set();
-
+      const clearedDots = prevDots.map(dot => ({ ...dot, isCrossMapConnected: false }));
+      const crossConnectedIds = new Set();
       connections.forEach(conn => {
-        const dot1 = updatedDots.find(d => d.id === conn.dot1Id);
-        const dot2 = updatedDots.find(d => d.id === conn.dot2Id);
-
+        const dot1 = clearedDots.find(d => d.id === conn.dot1Id);
+        const dot2 = clearedDots.find(d => d.id === conn.dot2Id);
         if (dot1 && dot2 && dot1.map !== dot2.map) {
-          crossConnectedDotIds.add(dot1.id);
-          crossConnectedDotIds.add(dot2.id);
+          crossConnectedIds.add(dot1.id);
+          crossConnectedIds.add(dot2.id);
         }
       });
-
-      return updatedDots.map(dot => {
-        if (crossConnectedDotIds.has(dot.id)) {
-          return { ...dot, isCrossMapConnected: true };
-        }
-        return dot;
-      });
+      return clearedDots.map(dot =>
+        crossConnectedIds.has(dot.id)
+          ? { ...dot, isCrossMapConnected: true }
+          : dot
+      );
     });
-  }, [connections, setDots]);
+  }, [connections]);
 
-  // Call updateCrossMapConnections when connections or dots change
+  // Only re-run when connections change to avoid infinite loops.
   useEffect(() => {
     updateCrossMapConnections();
-  }, [connections, dots, updateCrossMapConnections]);
+  }, [connections, updateCrossMapConnections]);
 
-  // Effect to log dots and connections for debugging
   useEffect(() => {
     console.log("Dots updated:", dots);
   }, [dots]);
@@ -56,7 +50,7 @@ function SimplifiedFlexParent() {
     console.log("Connections updated:", connections);
   }, [connections]);
 
-  // Global listener to close the context menu when clicking outside.
+  // Global click listener to close the context menu.
   useEffect(() => {
     const handleClickOutside = () => {
       if (contextMenu.visible) {
@@ -67,114 +61,103 @@ function SimplifiedFlexParent() {
     return () => document.removeEventListener("click", handleClickOutside);
   }, [contextMenu.visible]);
 
+  const addDot = useCallback((x, y, clientX, clientY) => {
+    const id = Date.now();
+    setDots(prev => [
+      ...prev,
+      { id, x, y, name: "", isVisible: true, map: activeMap, isCrossMapConnected: false }
+    ]);
+    setContextMenu({ visible: true, dotId: id, x: clientX, y: clientY });
+  }, [activeMap]);
 
-  // When a left-click occurs on the image, add a new dot on the current active map.
-  const addDot = useCallback(
-    (x, y, clientX, clientY) => {
-      const id = Date.now();
-      // Include the activeMap property for the dot.
-      setDots((prevDots) => [
-        ...prevDots,
-        { id, x, y, name: "", isVisible: true, map: activeMap, isCrossMapConnected: false },
-      ]);
-      setContextMenu({ visible: true, dotId: id, x: clientX, y: clientY });
-    },
-    [activeMap]
-  );
+  const handleImgBoundsMouseUp = useCallback((e) => {
+    if (e.button !== 0) return;
+    const rect = e.currentTarget.getBoundingClientRect();
+    const x = e.clientX - rect.left;
+    const y = e.clientY - rect.top;
+    addDot(x, y, e.clientX, e.clientY);
+  }, [addDot]);
 
-  const handleImgBoundsMouseUp = useCallback(
-    (e) => {
-      if (e.button !== 0) return;
-      const rect = e.currentTarget.getBoundingClientRect();
-      const x = e.clientX - rect.left;
-      const y = e.clientY - rect.top;
-      addDot(x, y, e.clientX, e.clientY);
-    },
-    [addDot]
-  );
-
-  // Update connection function to support cross-map connections.
   const addConnection = (id1, id2) => {
-    if (
-      !connections.some(
-        (conn) =>
-          (conn.dot1Id === id1 && conn.dot2Id === id2) ||
-          (conn.dot1Id === id2 && conn.dot2Id === id1)
-      )
-    ) {
-      const dot1 = dots.find((d) => d.id === id1);
-      const dot2 = dots.find((d) => d.id === id2);
-      if (dot1 && dot2) {
-        let distance;
-        // If on the same map, calculate Euclidean distance.
-        if (dot1.map === dot2.map) {
-          distance = Math.sqrt(
-            Math.pow(dot1.x - dot2.x, 2) + Math.pow(dot1.y - dot2.y, 2)
-          ).toFixed(2);
-        } else {
-          // For cross-map connections, use the absolute difference of the map numbers.
-          const num1 = parseInt(dot1.map.split(" ")[1], 10);
-          const num2 = parseInt(dot2.map.split(" ")[1], 10);
-          distance = Math.abs(num1 - num2);
-        }
-        setConnections((prev) => [
-          ...prev,
-          { dot1Id: id1, dot2Id: id2, distance },
-        ]);
-      }
+    if (connections.some(conn =>
+      (conn.dot1Id === id1 && conn.dot2Id === id2) ||
+      (conn.dot1Id === id2 && conn.dot2Id === id1)
+    )) return;
+
+    const dot1 = dots.find(d => d.id === id1);
+    const dot2 = dots.find(d => d.id === id2);
+    if (dot1 && dot2) {
+      const distance = dot1.map === dot2.map
+        ? Math.hypot(dot1.x - dot2.x, dot1.y - dot2.y).toFixed(2)
+        : Math.abs(
+            parseInt(dot1.map.split(" ")[1], 10) -
+            parseInt(dot2.map.split(" ")[1], 10)
+          );
+      setConnections(prev => [
+        ...prev,
+        { dot1Id: id1, dot2Id: id2, distance, isVisible: connectionsVisible }
+      ]);
     }
   };
 
-  // Filter visible dots and connections to show only items on the active map.
-  const visibleDots = dots.filter((dot) => dot.map === activeMap);
-  const visibleConnections = connections.filter((connection) => {
-    const dot1 = dots.find((dot) => dot.id === connection.dot1Id);
-    const dot2 = dots.find((dot) => dot.id === connection.dot2Id);
-    return dot1 && dot2 && dot1.map === activeMap && dot2.map === activeMap;
-  });
+  const visibleDots = useMemo(
+    () => dots.filter(dot => dot.map === activeMap),
+    [dots, activeMap]
+  );
+
+  const visibleConnections = useMemo(() => 
+    connections.filter(connection => {
+      const dot1 = dots.find(dot => dot.id === connection.dot1Id);
+      const dot2 = dots.find(dot => dot.id === connection.dot2Id);
+      return dot1 && dot2 && dot1.map === activeMap && dot2.map === activeMap;
+    }), 
+    [connections, dots, activeMap]
+  );
 
   const updateDotName = (id, newName) => {
-    setDots((prevDots) =>
-      prevDots.map((d) => (d.id === id ? { ...d, name: newName } : d))
-    );
+    setDots(prev => prev.map(dot => dot.id === id ? { ...dot, name: newName } : dot));
   };
 
   const updateDotVisibility = (id, visible) => {
-    setDots((prevDots) =>
-      prevDots.map((d) => (d.id === id ? { ...d, isVisible: visible } : d))
-    );
+    setDots(prev => prev.map(dot => dot.id === id ? { ...dot, isVisible: visible } : dot));
   };
 
   const removeConnection = (id1, id2) => {
-    setConnections((prev) =>
-      prev.filter(
-        (conn) =>
-          !(
-            (conn.dot1Id === id1 && conn.dot2Id === id2) ||
-            (conn.dot1Id === id2 && conn.dot2Id === id1)
-          )
+    setConnections(prev =>
+      prev.filter(conn =>
+        !((conn.dot1Id === id1 && conn.dot2Id === id2) ||
+          (conn.dot1Id === id2 && conn.dot2Id === id1))
       )
     );
   };
 
   const deleteDot = useCallback((id) => {
-    console.log("Deleting dot with id", id);
-    setDots((prevDots) => prevDots.filter((dot) => dot.id !== id));
-    setConnections((prevConnections) =>
-      prevConnections.filter((conn) => conn.dot1Id !== id && conn.dot2Id !== id)
+    setDots(prev => prev.filter(dot => dot.id !== id));
+    setConnections(prev =>
+      prev.filter(conn => conn.dot1Id !== id && conn.dot2Id !== id)
     );
     setContextMenu({ visible: false, dotId: null, x: 0, y: 0 });
   }, []);
 
-  const currentDot = dots.find((d) => d.id === contextMenu.dotId);
+  const handleToggleConnections = () => {
+    setConnectionsVisible(prev => {
+      const newVisibility = !prev;
+      setConnections(conns =>
+        conns.map(conn => ({ ...conn, isVisible: newVisibility }))
+      );
+      return newVisibility;
+    });
+  };
+
+  const currentDot = dots.find(d => d.id === contextMenu.dotId);
 
   return (
     <div>
-      {/* Map Toggling UI */}
       <div className={styles.mapSwitcher}>
         <button onClick={() => setActiveMap("Map 1")}>Map 1</button>
         <button onClick={() => setActiveMap("Map 2")}>Map 2</button>
         <button onClick={() => setActiveMap("Map 3")}>Map 3</button>
+        <button onClick={handleToggleConnections}>Toggle Connections</button>
       </div>
       <h2>Currently Viewing: {activeMap}</h2>
       <div className={styles.container}>
@@ -184,46 +167,46 @@ function SimplifiedFlexParent() {
           onMouseUp={handleImgBoundsMouseUp}
           onContextMenu={(e) => e.preventDefault()}
         >
-          {visibleDots.map((dot) => (
-            <React.Fragment key={dot.id}>
-              {dot.isVisible && (
+          {visibleDots.map(dot => {
+            const crossMapVisible = connections.some(conn => {
+              if (conn.isVisible) {
+                const otherDot = dot.id === conn.dot1Id
+                  ? dots.find(d => d.id === conn.dot2Id)
+                  : dots.find(d => d.id === conn.dot1Id);
+                return otherDot && dot.map !== otherDot.map;
+              }
+              return false;
+            });
+            const showGreenBorder = dot.isCrossMapConnected && crossMapVisible;
+            return (
+              <React.Fragment key={dot.id}>
+                {dot.isVisible && (
+                  <div
+                    className={styles.dotName}
+                    style={{ left: dot.x, top: dot.y - 30 }}
+                  >
+                    {dot.name}
+                  </div>
+                )}
                 <div
-                  className={styles.dotName}
-                  style={{
-                    left: dot.x,
-                    top: dot.y - 30,
+                  className={`${styles.dot} ${showGreenBorder ? styles.crossMapConnectedDot : ""}`}
+                  style={{ left: dot.x - 10, top: dot.y - 10 }}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setContextMenu({ visible: true, dotId: dot.id, x: e.clientX, y: e.clientY });
                   }}
-                >
-                  {dot.name}
-                </div>
-              )}
-              <div
-                className={`${styles.dot} ${
-                  dot.isCrossMapConnected ? styles.crossMapConnectedDot : ''
-                }`}
-                style={{
-                  left: dot.x - 10,
-                  top: dot.y - 10,
-                }}
-                onClick={(e) => {
-                  e.stopPropagation();
-                  setContextMenu({
-                    visible: true,
-                    dotId: dot.id,
-                    x: e.clientX,
-                    y: e.clientY,
-                  });
-                }}
-                onMouseDown={(e) => e.stopPropagation()}
-                onMouseUp={(e) => e.stopPropagation()}
-                draggable={false}
-              />
-            </React.Fragment>
-          ))}
+                  onMouseDown={(e) => e.stopPropagation()}
+                  onMouseUp={(e) => e.stopPropagation()}
+                  draggable={false}
+                />
+              </React.Fragment>
+            );
+          })}
           <svg className={styles.connectionCanvas}>
             {visibleConnections.map((connection, index) => {
-              const dot1 = dots.find((dot) => dot.id === connection.dot1Id);
-              const dot2 = dots.find((dot) => dot.id === connection.dot2Id);
+              if (!connection.isVisible) return null;
+              const dot1 = dots.find(dot => dot.id === connection.dot1Id);
+              const dot2 = dots.find(dot => dot.id === connection.dot2Id);
               if (!dot1 || !dot2) return null;
               return (
                 <line
@@ -260,4 +243,4 @@ function SimplifiedFlexParent() {
   );
 }
 
-export default SimplifiedFlexParent;
+export default FlexParent;
