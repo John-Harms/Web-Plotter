@@ -1,4 +1,4 @@
-// FlexParent.jsx (refactored)
+// FlexParent.jsx (updated)
 import React, { useState, useCallback, useEffect, useMemo } from "react";
 import styles from "./FlexParent.module.css";
 import hospitalMap from "../assets/images/StLukes.png";
@@ -37,7 +37,6 @@ function FlexParent() {
     });
   }, [connections]);
 
-  // Only re-run when connections change to avoid infinite loops.
   useEffect(() => {
     updateCrossMapConnections();
   }, [connections, updateCrossMapConnections]);
@@ -61,11 +60,21 @@ function FlexParent() {
     return () => document.removeEventListener("click", handleClickOutside);
   }, [contextMenu.visible]);
 
+  // Add Dot with the new isShown property
   const addDot = useCallback((x, y, clientX, clientY) => {
     const id = Date.now();
     setDots(prev => [
       ...prev,
-      { id, x, y, name: "", isVisible: true, map: activeMap, isCrossMapConnected: false }
+      {
+        id,
+        x,
+        y,
+        name: "",
+        isVisible: true,
+        map: activeMap,
+        isCrossMapConnected: false,
+        isShown: true // New property added here.
+      }
     ]);
     setContextMenu({ visible: true, dotId: id, x: clientX, y: clientY });
   }, [activeMap]);
@@ -100,8 +109,9 @@ function FlexParent() {
     }
   };
 
+  // Only render dots that belong to the active map AND have isShown true
   const visibleDots = useMemo(
-    () => dots.filter(dot => dot.map === activeMap),
+    () => dots.filter(dot => dot.map === activeMap && dot.isShown),
     [dots, activeMap]
   );
 
@@ -149,6 +159,14 @@ function FlexParent() {
     });
   };
 
+  // New function to toggle the isShown property for all dots.
+  const handleToggleDotsVisibility = () => {
+    setDots(prevDots => prevDots.map(dot => ({
+      ...dot,
+      isShown: !dot.isShown
+    })));
+  };
+
   const currentDot = dots.find(d => d.id === contextMenu.dotId);
 
   return (
@@ -158,6 +176,8 @@ function FlexParent() {
         <button onClick={() => setActiveMap("Map 2")}>Map 2</button>
         <button onClick={() => setActiveMap("Map 3")}>Map 3</button>
         <button onClick={handleToggleConnections}>Toggle Connections</button>
+        {/* New Toggle Dots Visibility button */}
+        <button onClick={handleToggleDotsVisibility}>Toggle Dots Visibility</button>
       </div>
       <h2>Currently Viewing: {activeMap}</h2>
       <div className={styles.container}>
