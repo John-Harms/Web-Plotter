@@ -1,10 +1,11 @@
 import React from 'react';
-import SimplifiedFlexParent from '../components/FlexParent';
+import FlexParent from '../components/FlexParent';
 
 function App() {
   return (
     <div>
-      <SimplifiedFlexParent /> {/* Make sure this line is present and not commented out */}
+      
+      <FlexParent /> {/* Make sure this line is present and not commented out */}
     </div>
   );
 }
