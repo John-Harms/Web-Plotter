@@ -17,6 +17,37 @@ function SimplifiedFlexParent() {
     y: 0,
   });
 
+  // Function to update isCrossMapConnected for all dots
+  const updateCrossMapConnections = useCallback(() => {
+    setDots(prevDots => {
+      const updatedDots = prevDots.map(dot => ({ ...dot, isCrossMapConnected: false }));
+      const crossConnectedDotIds = new Set();
+
+      connections.forEach(conn => {
+        const dot1 = updatedDots.find(d => d.id === conn.dot1Id);
+        const dot2 = updatedDots.find(d => d.id === conn.dot2Id);
+
+        if (dot1 && dot2 && dot1.map !== dot2.map) {
+          crossConnectedDotIds.add(dot1.id);
+          crossConnectedDotIds.add(dot2.id);
+        }
+      });
+
+      return updatedDots.map(dot => {
+        if (crossConnectedDotIds.has(dot.id)) {
+          return { ...dot, isCrossMapConnected: true };
+        }
+        return dot;
+      });
+    });
+  }, [connections, setDots]);
+
+  // Call updateCrossMapConnections when connections or dots change
+  useEffect(() => {
+    updateCrossMapConnections();
+  }, [connections, dots, updateCrossMapConnections]);
+
+  // Effect to log dots and connections for debugging
   useEffect(() => {
     console.log("Dots updated:", dots);
   }, [dots]);
@@ -36,6 +67,7 @@ function SimplifiedFlexParent() {
     return () => document.removeEventListener("click", handleClickOutside);
   }, [contextMenu.visible]);
 
+
   // When a left-click occurs on the image, add a new dot on the current active map.
   const addDot = useCallback(
     (x, y, clientX, clientY) => {
@@ -43,7 +75,7 @@ function SimplifiedFlexParent() {
       // Include the activeMap property for the dot.
       setDots((prevDots) => [
         ...prevDots,
-        { id, x, y, name: "", isVisible: true, map: activeMap },
+        { id, x, y, name: "", isVisible: true, map: activeMap, isCrossMapConnected: false },
       ]);
       setContextMenu({ visible: true, dotId: id, x: clientX, y: clientY });
     },
@@ -166,7 +198,9 @@ function SimplifiedFlexParent() {
                 </div>
               )}
               <div
-                className={styles.dot}
+                className={`${styles.dot} ${
+                  dot.isCrossMapConnected ? styles.crossMapConnectedDot : ''
+                }`}
                 style={{
                   left: dot.x - 10,
                   top: dot.y - 10,

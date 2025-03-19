@@ -32,8 +32,7 @@
   justify-content: center;
   align-items: center;
   font-size: 0.8em;
-  border-color: blue; /* Default border color */
-  border-width: 2px;
+  border: none; /* No default border */
   box-sizing: border-box; /* To include border in width and height */
 }
 
@@ -109,4 +108,10 @@ cursor: pointer;
   border-radius: 3px;
   font-size: 0.8em;
   pointer-events: none;
+}
+
+.dot.crossMapConnectedDot {
+  border-color: green; /* Green border when cross-map connected */
+  border-style: solid;
+  border-width: 2px;
 }
